@@ -1,0 +1,40 @@
+{
+    "Resources": {
+        "badjokeEmailer": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "Handler": "index.lambda_handler",
+                "Runtime": "python3.6",
+                "Role": "",
+                "Code": {
+                    "ZipFile": {
+                        "Fn::Join": [
+                            "",
+                            [
+                            "from botocore.vendored import requests\n",
+                            "import boto3\n",
+                            "import json\n",
+                            "\n",
+                            "# Lambda function to request Chuck Norris jokes and then publish them to an SES feed\n",
+                            "\n",
+                            "# set up sns client\n",
+                            "client = boto3.client('sns')\n",
+                            "\n",
+                            "def lambda_handler(event, context):\n",
+                            "    # fire a request off at the Chuck Norris API and format it\n",
+                            "    joke = requests.get('https://api.chucknorris.io/jokes/random', headers={'Content-Type': 'application/json'}).json()['value']\n",
+                            "    data = json.dumps(joke)\n",
+                            "    # put the topic ARN in a variable\n",
+                            "    topic_arn = ''\n",
+                            "    # publish the joke to the topic\n",
+                            "    client.publish(Message=joke, TopicArn=topic_arn)\n",
+                            "    # return the joke for debug purposes\n",
+                            "    return joke\n"
+                            ]
+                        ]
+                    }
+                }
+            }
+        }
+    }
+}
