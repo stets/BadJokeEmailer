@@ -2,10 +2,16 @@
     "Resources": {
         "badjokeEmailer": {
             "Type": "AWS::Lambda::Function",
+            "DependsOn": "LambdaSNS",
             "Properties": {
                 "Handler": "index.lambda_handler",
                 "Runtime": "python3.6",
-                "Role": "",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaSNS",
+                        "Arn"
+                    ]
+                },
                 "Code": {
                     "ZipFile": {
                         "Fn::Join": [
@@ -43,10 +49,16 @@
         },
         "subscriber": {
             "Type": "AWS::Lambda::Function",
+            "DependsOn": "LambdaSNS",
             "Properties": {
                 "Handler": "index.lambda_handler",
                 "Runtime": "python3.6",
-                "Role": "",
+                "Role": {
+                    "Fn::GetAtt": [
+                        "LambdaSNS",
+                        "Arn"
+                    ]
+                },
                 "Code": {
                     "ZipFile": {
                         "Fn::Join": [
@@ -90,6 +102,56 @@
                     "id": "fd9b4561-0852-4d7f-8706-832fedf09ba7"
                 }
             }
+        },
+        "LambdaSNS": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Sid": "",
+                            "Effect": "Allow",
+                            "Action": "sts:AssumeRole",
+                            "Principal": {
+                                "Service": "lambda.amazonaws.com"
+                            }
+                        }
+                    ]
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "2f532efb-b5da-4cea-a1d6-7225a879cd26"
+                }
+            }
+        },
+        "SNSFullAccess": {
+            "Type": "AWS::IAM::ManagedPolicy",
+            "Properties": {
+                "PolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": [
+                                "sns:*"
+                            ], 
+                            "Resource": "*"
+                        }
+                    ]
+                },
+                "Roles": [
+                    {
+                        "Ref": "LambdaSNS"
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "44b2c081-2f23-4d15-9cc9-5c8108a9a06f"
+                }
+            }
         }
     },
     "Metadata": {
@@ -101,7 +163,7 @@
                 },
                 "position": {
                     "x": 60,
-                    "y": 90
+                    "y": 80
                 },
                 "z": 1,
                 "embeds": []
@@ -113,10 +175,37 @@
                 },
                 "position": {
                     "x": 60,
-                    "y": 160
+                    "y": 180
                 },
                 "z": 0,
                 "embeds": []
+            },
+            "2f532efb-b5da-4cea-a1d6-7225a879cd26": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -30,
+                    "y": 130
+                },
+                "z": 0,
+                "embeds": []
+            },
+            "44b2c081-2f23-4d15-9cc9-5c8108a9a06f": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": -140,
+                    "y": 130
+                },
+                "z": 0,
+                "embeds": [],
+                "isassociatedwith": [
+                    "2f532efb-b5da-4cea-a1d6-7225a879cd26"
+                ]
             }
         }
     }
