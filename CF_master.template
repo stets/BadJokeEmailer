@@ -2,7 +2,10 @@
     "Resources": {
         "badjokeEmailer": {
             "Type": "AWS::Lambda::Function",
-            "DependsOn": "LambdaSNS",
+            "DependsOn": [
+                "LambdaSNS",
+                "subscribers"
+            ],
             "Properties": {
                 "Handler": "index.lambda_handler",
                 "Runtime": "python3.6",
@@ -31,7 +34,11 @@
                                 "    joke = requests.get('https://api.chucknorris.io/jokes/random', headers={'Content-Type': 'application/json'}).json()['value']\n",
                                 "    data = json.dumps(joke)\n",
                                 "    # put the topic ARN in a variable\n",
-                                "    topic_arn = ''\n",
+                                "    topic_arn = '",
+                                {
+                                    "Ref": "subscribers"
+                                },
+                                "'\n",
                                 "    # publish the joke to the topic\n",
                                 "    client.publish(Message=joke, TopicArn=topic_arn)\n",
                                 "    # return the joke for debug purposes\n",
@@ -49,7 +56,10 @@
         },
         "subscriber": {
             "Type": "AWS::Lambda::Function",
-            "DependsOn": "LambdaSNS",
+            "DependsOn": [
+                "LambdaSNS",
+                "subscribers"
+            ],
             "Properties": {
                 "Handler": "index.lambda_handler",
                 "Runtime": "python3.6",
@@ -69,8 +79,11 @@
                                 "# simple script to receive API POST requests and add users to SES subscribers within AWS\n",
                                 "# setup the SNS connection\n",
                                 "client = boto3.client('sns')\n",
-                                "topic_arn = ''\n",
-                                "\n",
+                                "topic_arn = '",
+                                {
+                                    "Ref": "subscribers"
+                                },
+                                "'\n",
                                 "def lambda_handler(event, context):\n",
                                 "    # grab email and API resource path\n",
                                 "    email = event['body-json']['email']\n",
@@ -84,14 +97,15 @@
                                 "    elif resourcePath == '/unsubscribe':\n",
                                 "\n",
                                 "        a = client.list_subscriptions()\n",
-                                "        print a \n",
                                 "        for each in a['Subscriptions']:\n",
-                                "            print each['Endpoint']\n",
                                 "            if email == each['Endpoint']:\n",
-                                "                client.unsubscribe(SubscriptionArn=each['SubscriptionArn'])\n",
+                                "                try:\n",
+                                "                    client.unsubscribe(SubscriptionArn=each['SubscriptionArn'])\n",
+                                "                except:\n",
+                                "                    return('Could not find your email, are you sure you are subscribed?')\n",
                                 "\n",
                                 "        # remove the email to the SNS topic specified by ARN\n",
-                                "        return 'Sorry to hear that you didn't like our awesome jokes, we are now unsubscribing: ' + email, a\n"
+                                "        return (\"Sorry to hear that you didn't like our awesome jokes, we are now unsubscribing: \" + email)\n"
                             ]
                         ]
                     }
@@ -136,7 +150,7 @@
                             "Effect": "Allow",
                             "Action": [
                                 "sns:*"
-                            ], 
+                            ],
                             "Resource": "*"
                         }
                     ]
@@ -149,21 +163,348 @@
             },
             "Metadata": {
                 "AWS::CloudFormation::Designer": {
-                    "id": "44b2c081-2f23-4d15-9cc9-5c8108a9a06f"
+                    "id": "504facd5-1fe9-4f3d-a152-b9404b90e7af"
                 }
+            }
+        },
+        "AGRA1GLIS": {
+            "Type": "AWS::ApiGateway::RestApi",
+            "DependsOn": "subscriber",
+            "Properties": {
+                "Body": {
+                    "Credentials": "",
+                    "swagger": "2.0",
+                    "info": {
+                        "version": "2018-06-15T23:44:42Z",
+                        "title": "subscribe"
+                    },
+                    "host": "ekd7290bj4.execute-api.us-east-1.amazonaws.com",
+                    "basePath": "/dev",
+                    "schemes": [
+                        "https"
+                    ],
+                    "paths": {
+                        "/subscribe": {
+                            "post": {
+                                "consumes": [
+                                    "application/json"
+                                ],
+                                "produces": [
+                                    "application/json"
+                                ],
+                                "responses": {
+                                    "200": {
+                                        "description": "200 response",
+                                        "schema": {
+                                            "$ref": "#/definitions/Empty"
+                                        }
+                                    }
+                                },
+                                "x-amazon-apigateway-integration": {
+                                    "credentials": {
+                                        "Fn::GetAtt": [
+                                            "LambdaExecution",
+                                            "Arn"
+                                        ]
+                                    },
+                                    "uri": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:apigateway:",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                },
+                                                ":lambda:path/2015-03-31/functions/",
+                                                {
+                                                    "Fn::GetAtt": [
+                                                        "subscriber",
+                                                        "Arn"
+                                                    ]
+                                                },
+                                                "/invocations"
+                                            ]
+                                        ]
+                                    },
+                                    "responses": {
+                                        "default": {
+                                            "statusCode": "200"
+                                        }
+                                    },
+                                    "requestTemplates": {
+                                        "application/json": "##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html\n##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload\n#set($allParams = $input.params())\n{\n\"body-json\" : $input.json('$'),\n\"params\" : {\n#foreach($type in $allParams.keySet())\n    #set($params = $allParams.get($type))\n\"$type\" : {\n    #foreach($paramName in $params.keySet())\n    \"$paramName\" : \"$util.escapeJavaScript($params.get($paramName))\"\n        #if($foreach.hasNext),#end\n    #end\n}\n    #if($foreach.hasNext),#end\n#end\n},\n\"stage-variables\" : {\n#foreach($key in $stageVariables.keySet())\n\"$key\" : \"$util.escapeJavaScript($stageVariables.get($key))\"\n    #if($foreach.hasNext),#end\n#end\n},\n\"context\" : {\n    \"account-id\" : \"$context.identity.accountId\",\n    \"api-id\" : \"$context.apiId\",\n    \"api-key\" : \"$context.identity.apiKey\",\n    \"authorizer-principal-id\" : \"$context.authorizer.principalId\",\n    \"caller\" : \"$context.identity.caller\",\n    \"cognito-authentication-provider\" : \"$context.identity.cognitoAuthenticationProvider\",\n    \"cognito-authentication-type\" : \"$context.identity.cognitoAuthenticationType\",\n    \"cognito-identity-id\" : \"$context.identity.cognitoIdentityId\",\n    \"cognito-identity-pool-id\" : \"$context.identity.cognitoIdentityPoolId\",\n    \"http-method\" : \"$context.httpMethod\",\n    \"stage\" : \"$context.stage\",\n    \"source-ip\" : \"$context.identity.sourceIp\",\n    \"user\" : \"$context.identity.user\",\n    \"user-agent\" : \"$context.identity.userAgent\",\n    \"user-arn\" : \"$context.identity.userArn\",\n    \"request-id\" : \"$context.requestId\",\n    \"resource-id\" : \"$context.resourceId\",\n    \"resource-path\" : \"$context.resourcePath\"\n    }\n}\n"
+                                    },
+                                    "passthroughBehavior": "when_no_templates",
+                                    "httpMethod": "POST",
+                                    "contentHandling": "CONVERT_TO_TEXT",
+                                    "type": "aws"
+                                }
+                            },
+                            "options": {
+                                "consumes": [
+                                    "application/json"
+                                ],
+                                "produces": [
+                                    "application/json"
+                                ],
+                                "responses": {
+                                    "200": {
+                                        "description": "200 response",
+                                        "schema": {
+                                            "$ref": "#/definitions/Empty"
+                                        },
+                                        "headers": {
+                                            "Access-Control-Allow-Origin": {
+                                                "type": "string"
+                                            },
+                                            "Access-Control-Allow-Methods": {
+                                                "type": "string"
+                                            },
+                                            "Access-Control-Allow-Headers": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "x-amazon-apigateway-integration": {
+                                    "credentials": {
+                                        "Fn::GetAtt": [
+                                            "LambdaExecution",
+                                            "Arn"
+                                        ]
+                                    },
+                                    "responses": {
+                                        "default": {
+                                            "statusCode": "200",
+                                            "responseParameters": {
+                                                "method.response.header.Access-Control-Allow-Methods": "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'",
+                                                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
+                                                "method.response.header.Access-Control-Allow-Origin": "'*'"
+                                            }
+                                        }
+                                    },
+                                    "requestTemplates": {
+                                        "application/json": "{\"statusCode\": 200}"
+                                    },
+                                    "passthroughBehavior": "when_no_match",
+                                    "type": "mock"
+                                }
+                            }
+                        },
+                        "/unsubscribe": {
+                            "post": {
+                                "consumes": [
+                                    "application/json"
+                                ],
+                                "produces": [
+                                    "application/json"
+                                ],
+                                "responses": {
+                                    "200": {
+                                        "description": "200 response",
+                                        "schema": {
+                                            "$ref": "#/definitions/Empty"
+                                        }
+                                    }
+                                },
+                                "x-amazon-apigateway-integration": {
+                                    "credentials": {
+                                        "Fn::GetAtt": [
+                                            "LambdaExecution",
+                                            "Arn"
+                                        ]
+                                    },
+                                    "uri": {
+                                        "Fn::Join": [
+                                            "",
+                                            [
+                                                "arn:aws:apigateway:",
+                                                {
+                                                    "Ref": "AWS::Region"
+                                                },
+                                                ":lambda:path/2015-03-31/functions/",
+                                                {
+                                                    "Fn::GetAtt": [
+                                                        "subscriber",
+                                                        "Arn"
+                                                    ]
+                                                },
+                                                "/invocations"
+                                            ]
+                                        ]
+                                    },
+                                    "responses": {
+                                        "default": {
+                                            "statusCode": "200"
+                                        }
+                                    },
+                                    "requestTemplates": {
+                                        "application/json": "##  See http://docs.aws.amazon.com/apigateway/latest/developerguide/api-gateway-mapping-template-reference.html\n##  This template will pass through all parameters including path, querystring, header, stage variables, and context through to the integration endpoint via the body/payload\n#set($allParams = $input.params())\n{\n\"body-json\" : $input.json('$'),\n\"params\" : {\n#foreach($type in $allParams.keySet())\n    #set($params = $allParams.get($type))\n\"$type\" : {\n    #foreach($paramName in $params.keySet())\n    \"$paramName\" : \"$util.escapeJavaScript($params.get($paramName))\"\n        #if($foreach.hasNext),#end\n    #end\n}\n    #if($foreach.hasNext),#end\n#end\n},\n\"stage-variables\" : {\n#foreach($key in $stageVariables.keySet())\n\"$key\" : \"$util.escapeJavaScript($stageVariables.get($key))\"\n    #if($foreach.hasNext),#end\n#end\n},\n\"context\" : {\n    \"account-id\" : \"$context.identity.accountId\",\n    \"api-id\" : \"$context.apiId\",\n    \"api-key\" : \"$context.identity.apiKey\",\n    \"authorizer-principal-id\" : \"$context.authorizer.principalId\",\n    \"caller\" : \"$context.identity.caller\",\n    \"cognito-authentication-provider\" : \"$context.identity.cognitoAuthenticationProvider\",\n    \"cognito-authentication-type\" : \"$context.identity.cognitoAuthenticationType\",\n    \"cognito-identity-id\" : \"$context.identity.cognitoIdentityId\",\n    \"cognito-identity-pool-id\" : \"$context.identity.cognitoIdentityPoolId\",\n    \"http-method\" : \"$context.httpMethod\",\n    \"stage\" : \"$context.stage\",\n    \"source-ip\" : \"$context.identity.sourceIp\",\n    \"user\" : \"$context.identity.user\",\n    \"user-agent\" : \"$context.identity.userAgent\",\n    \"user-arn\" : \"$context.identity.userArn\",\n    \"request-id\" : \"$context.requestId\",\n    \"resource-id\" : \"$context.resourceId\",\n    \"resource-path\" : \"$context.resourcePath\"\n    }\n}\n"
+                                    },
+                                    "passthroughBehavior": "when_no_templates",
+                                    "httpMethod": "POST",
+                                    "contentHandling": "CONVERT_TO_TEXT",
+                                    "type": "aws"
+                                }
+                            },
+                            "options": {
+                                "consumes": [
+                                    "application/json"
+                                ],
+                                "produces": [
+                                    "application/json"
+                                ],
+                                "responses": {
+                                    "200": {
+                                        "description": "200 response",
+                                        "schema": {
+                                            "$ref": "#/definitions/Empty"
+                                        },
+                                        "headers": {
+                                            "Access-Control-Allow-Origin": {
+                                                "type": "string"
+                                            },
+                                            "Access-Control-Allow-Methods": {
+                                                "type": "string"
+                                            },
+                                            "Access-Control-Allow-Headers": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    }
+                                },
+                                "x-amazon-apigateway-integration": {
+                                    "credentials": {
+                                        "Fn::GetAtt": [
+                                            "LambdaExecution",
+                                            "Arn"
+                                        ]
+                                    },
+                                    "responses": {
+                                        "default": {
+                                            "statusCode": "200",
+                                            "responseParameters": {
+                                                "method.response.header.Access-Control-Allow-Methods": "'DELETE,GET,HEAD,OPTIONS,PATCH,POST,PUT'",
+                                                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,Authorization,X-Amz-Date,X-Api-Key,X-Amz-Security-Token'",
+                                                "method.response.header.Access-Control-Allow-Origin": "'*'"
+                                            }
+                                        }
+                                    },
+                                    "requestTemplates": {
+                                        "application/json": "{\"statusCode\": 200}"
+                                    },
+                                    "passthroughBehavior": "when_no_match",
+                                    "type": "mock"
+                                }
+                            }
+                        }
+                    },
+                    "definitions": {
+                        "Empty": {
+                            "type": "object",
+                            "title": "Empty Schema"
+                        }
+                    }
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "145eed55-0001-4dd7-b02c-43197ab77d54"
+                }
+            }
+        },
+        "AGD2OL80": {
+            "Type": "AWS::ApiGateway::Deployment",
+            "DependsOn": "AGRA1GLIS",
+            "Properties": {
+                "RestApiId": {
+                    "Ref": "AGRA1GLIS"
+                },
+                "StageName": "dev"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "bb7aa64c-a41a-4e91-9630-2c2474e73e03"
+                }
+            }
+        },
+        "LambdaExecution": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [
+                        {
+                            "Effect": "Allow",
+                            "Action": "sts:AssumeRole",
+                            "Principal": {
+                                "Service": "apigateway.amazonaws.com"
+                            }
+                        }
+                    ]
+                },
+                "Path": "/",
+                "Policies": [
+                    {
+                        "PolicyName": "root",
+                        "PolicyDocument": {
+                            "Version": "2012-10-17",
+                            "Statement": [
+                                {
+                                    "Effect": "Allow",
+                                    "Action": [
+                                        "lambda:InvokeFunction",
+                                        "iam:PassRole"
+                                    ],
+                                    "Resource": [
+                                        "*"
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "e9a98be8-88f2-4318-960d-a12c5f6baadb"
+                }
+            }
+        },
+        "subscribers": {
+            "Type": "AWS::SNS::Topic",
+            "Properties": {
+                "DisplayName": "subscribers to bad jokes",
+                "TopicName": "subscribers"
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "e2f2074d-54a2-4fc7-80de-a3ed09731c7a"
+                }
+            }
+        }
+    },
+    "Outputs": {
+        "InvokeUrl": {
+            "Description": "The invoke URL for the created API gateway resource",
+            "Value": {
+                "Ref": "AGRA1GLIS"
+            },
+            "Export": {
+                "Name": "InvokeURL"
             }
         }
     },
     "Metadata": {
         "AWS::CloudFormation::Designer": {
-            "46b71565-97fe-4be0-b33b-b2fb35b47b29": {
+            "2f532efb-b5da-4cea-a1d6-7225a879cd26": {
                 "size": {
                     "width": 60,
                     "height": 60
                 },
                 "position": {
-                    "x": 60,
-                    "y": 80
+                    "x": 280,
+                    "y": 210
                 },
                 "z": 1,
                 "embeds": []
@@ -174,38 +515,92 @@
                     "height": 60
                 },
                 "position": {
+                    "x": 240,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "46b71565-97fe-4be0-b33b-b2fb35b47b29": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 330,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "e9a98be8-88f2-4318-960d-a12c5f6baadb": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
                     "x": 60,
-                    "y": 180
+                    "y": 90
                 },
-                "z": 0,
+                "z": 1,
                 "embeds": []
             },
-            "2f532efb-b5da-4cea-a1d6-7225a879cd26": {
+            "504facd5-1fe9-4f3d-a152-b9404b90e7af": {
                 "size": {
                     "width": 60,
                     "height": 60
                 },
                 "position": {
-                    "x": -30,
-                    "y": 130
+                    "x": 280,
+                    "y": 290
                 },
-                "z": 0,
-                "embeds": []
-            },
-            "44b2c081-2f23-4d15-9cc9-5c8108a9a06f": {
-                "size": {
-                    "width": 60,
-                    "height": 60
-                },
-                "position": {
-                    "x": -140,
-                    "y": 130
-                },
-                "z": 0,
+                "z": 1,
                 "embeds": [],
                 "isassociatedwith": [
                     "2f532efb-b5da-4cea-a1d6-7225a879cd26"
                 ]
+            },
+            "145eed55-0001-4dd7-b02c-43197ab77d54": {
+                "size": {
+                    "width": 240,
+                    "height": 240
+                },
+                "position": {
+                    "x": 20,
+                    "y": 240
+                },
+                "z": 1,
+                "embeds": [
+                    "bb7aa64c-a41a-4e91-9630-2c2474e73e03"
+                ]
+            },
+            "bb7aa64c-a41a-4e91-9630-2c2474e73e03": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 50,
+                    "y": 300
+                },
+                "z": 2,
+                "parent": "145eed55-0001-4dd7-b02c-43197ab77d54",
+                "embeds": [],
+                "dependson": [
+                    "145eed55-0001-4dd7-b02c-43197ab77d54"
+                ]
+            },
+            "e2f2074d-54a2-4fc7-80de-a3ed09731c7a": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 420,
+                    "y": 90
+                },
+                "z": 1,
+                "embeds": []
             }
         }
     }
