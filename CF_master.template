@@ -24,7 +24,7 @@
                                 "import boto3\n",
                                 "import json\n",
                                 "\n",
-                                "# Lambda function to request Chuck Norris jokes and then publish them to an SES feed\n",
+                                "# Lambda function to request Chuck Norris jokes and then publish them to an SNS feed\n",
                                 "\n",
                                 "# set up sns client\n",
                                 "client = boto3.client('sns')\n",
@@ -93,7 +93,7 @@
                                 "    if resourcePath == '/subscribe':\n",
                                 "        # add the email to the SNS topic specified by ARN\n",
                                 "        client.subscribe(TopicArn=topic_arn, Protocol='email', Endpoint=email)\n",
-                                "        return 'Hey there, your email'  + email + ' is now subscribed to bad jokes!'\n",
+                                "        return 'Hey there, your email '  + email + ' is now subscribed to bad jokes!'\n",
                                 "    elif resourcePath == '/unsubscribe':\n",
                                 "\n",
                                 "        a = client.list_subscriptions()\n",
@@ -438,7 +438,11 @@
                             "Effect": "Allow",
                             "Action": "sts:AssumeRole",
                             "Principal": {
-                                "Service": "apigateway.amazonaws.com"
+                                "Service": [
+                                    "apigateway.amazonaws.com",
+                                    "events.amazonaws.com",
+                                    "lambda.amazonaws.com"
+                                ]
                             }
                         }
                     ]
@@ -454,7 +458,10 @@
                                     "Effect": "Allow",
                                     "Action": [
                                         "lambda:InvokeFunction",
-                                        "iam:PassRole"
+                                        "iam:PassRole",
+                                        "logs:CreateLogGroup",
+                                        "logs:CreateLogStream",
+                                        "Logs:PutLogEvents"
                                     ],
                                     "Resource": [
                                         "*"
@@ -482,16 +489,111 @@
                     "id": "e2f2074d-54a2-4fc7-80de-a3ed09731c7a"
                 }
             }
+        },
+        "ChuckCron": {
+            "Type": "AWS::Events::Rule",
+            "DependsOn": [
+                "LambdaExecution"
+            ],
+            "Properties": {
+                "Description": "Cloudwatch rule to trigger badjokeEmailer lambda once a day",
+                "Name": "ChuckEmailFirer",
+                "ScheduleExpression": "cron(0/5 * * * ? *)",
+                "RoleArn": {
+                    "Fn::GetAtt": [
+                        "LambdaExecution",
+                        "Arn"
+                    ]
+                },
+                "Targets": [
+                    {
+                        "Arn": {
+                            "Fn::GetAtt": [
+                                "badjokeEmailer",
+                                "Arn"
+                            ]
+                        },
+                        "Id": "ChuckScheduler"
+                    }
+                ]
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "5233770b-1359-41ab-b440-71bbf40659cc"
+                }
+            }
+        },
+        "CloudWatchPermission": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": {
+                    "Fn::GetAtt": [
+                        "badjokeEmailer",
+                        "Arn"
+                    ]
+                },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": {
+                    "Fn::GetAtt": [
+                        "ChuckCron",
+                        "Arn"
+                    ]
+                }
+            },
+            "Metadata": {
+                "AWS::CloudFormation::Designer": {
+                    "id": "e52b3169-560a-46aa-a805-1d252200e891"
+                }
+            }
         }
     },
     "Outputs": {
-        "InvokeUrl": {
+        
+        "InvokeUrlUnsubscribe": {
             "Description": "The invoke URL for the created API gateway resource",
             "Value": {
-                "Ref": "AGRA1GLIS"
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://",
+                        {
+                            "Ref": "AGRA1GLIS"
+                        },
+                        ".execute-api.",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        ".amazonaws.com",
+                        "/dev/unsubscribe"
+                    ]
+                ]
             },
             "Export": {
-                "Name": "InvokeURL"
+                "Name": "InvokeUrlUnsubscribe"
+            }
+        },
+        "InvokeUrlSubscribe": {
+            "Description": "The invoke URL for the created API gateway resource",
+            "Value": {
+                "Fn::Join": [
+                    "",
+                    [
+                        "https://",
+                        {
+                            "Ref": "AGRA1GLIS"
+                        },
+                        ".execute-api.",
+                        {
+                            "Ref": "AWS::Region"
+                        },
+                        ".amazonaws.com",
+                        "/dev/subscribe"
+                    ]
+                ]
+            },
+            "Export": {
+                "Name": "InvokeUrlSubscribe"
             }
         }
     },
@@ -503,7 +605,7 @@
                     "height": 60
                 },
                 "position": {
-                    "x": 280,
+                    "x": 300,
                     "y": 210
                 },
                 "z": 1,
@@ -551,8 +653,8 @@
                     "height": 60
                 },
                 "position": {
-                    "x": 280,
-                    "y": 290
+                    "x": 420,
+                    "y": 210
                 },
                 "z": 1,
                 "embeds": [],
@@ -562,11 +664,11 @@
             },
             "145eed55-0001-4dd7-b02c-43197ab77d54": {
                 "size": {
-                    "width": 240,
-                    "height": 240
+                    "width": 170,
+                    "height": 160
                 },
                 "position": {
-                    "x": 20,
+                    "x": 30,
                     "y": 240
                 },
                 "z": 1,
@@ -580,7 +682,7 @@
                     "height": 60
                 },
                 "position": {
-                    "x": 50,
+                    "x": 80,
                     "y": 300
                 },
                 "z": 2,
@@ -601,6 +703,33 @@
                 },
                 "z": 1,
                 "embeds": []
+            },
+            "5233770b-1359-41ab-b440-71bbf40659cc": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 330,
+                    "y": -40
+                },
+                "z": 1,
+                "embeds": []
+            },
+            "e52b3169-560a-46aa-a805-1d252200e891": {
+                "size": {
+                    "width": 60,
+                    "height": 60
+                },
+                "position": {
+                    "x": 220,
+                    "y": -40
+                },
+                "z": 0,
+                "embeds": [],
+                "isassociatedwith": [
+                    "46b71565-97fe-4be0-b33b-b2fb35b47b29"
+                ]
             }
         }
     }
