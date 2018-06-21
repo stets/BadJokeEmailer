@@ -4,9 +4,9 @@ This project is a Cloudformation template that deploys AWS Resources to create a
 The template contains an API Gateway and endpoints, 2 lambdas written in python and necesarry IAM roles to ensure everything has access.
 One lambda handles requests from API Gateway and adds or removes users from the SNS topic, while the other is configured to GET a Chuck Norris joke from ChuckNorris.io and send it to the subscribed users.
 
-## How to Use
+# How to Use
 
-Upload the cloudformation master template in the root of this repo via s3 or copy paste it into the Cloudformation designer and deploy it.All of the default options will deploy fine.
+Upload the cloudformation master template in the root of this repo via s3 or copy paste it into the Cloudformation designer and deploy it. All of the default options will deploy fine.
 
 Once the stack has been deployed, it will output the name of the subscribe and unsubscribe API endpoints under the 'Outputs' tab on the main Cloudformation page. 
 
