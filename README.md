@@ -1,31 +1,29 @@
 # BadJokeEmailer
-Cloudformation template that deploys API Gateway endpoints, a SES Topic and lambda scripts that send a user a Chuck Norris joke daily.
+This project is a Cloudformation template that deploys AWS Resources to create a Chuck Norris joke emailer.
 
+The template contains an API Gateway and endpoints, 2 lambdas written in python and necesarry IAM roles to ensure everything has access.
+One lambda handles requests from API Gateway and adds or removes users from the SNS topic, while the other is configured to GET a Chuck Norris joke from ChuckNorris.io and send it to the subscribed users.
 
+## How to Use
 
-# How to Use
+Upload the cloudformation master template in the root of this repo via s3 or copy paste it into the Cloudformation designer and deploy it.All of the default options will deploy fine.
 
-Upload the cloudformation master template in the root of this repo via s3 or copy paste it into the Cloudformation designer and deploy it. All of the default options are fine. 
+Once the stack has been deployed, it will output the name of the subscribe and unsubscribe API endpoints under the 'Outputs' tab on the main Cloudformation page. 
 
-Once the stack has been deployed, it will output the name of the Invoke Url under the 'Outputs' tab under Cloudformation. 
+## To Subscribe a User
 
-The template creates and exposes 2 API endpoints, /subscribe and /unsubscribe
+Send a post request to the /subscribe endpoint in the format:
 
-## To subscribe a user to the SNS topic 
-
-send a post request to the /subscribe endpoint in the format:
-
-{"email":"ChuckNorris@gmail.com"}
+{"email": "ChuckNorris@gmail.com"}
 
 This will add that user to the SNS topic. The user will be emailed once a day at the same time that the stack was deployed. 
 
-Cloudwatch triggers the lambda that grabs the joke of the day and publishes to SNS. 
 
-## To Unsubscribe a user
+## To Unsubscribe a User
 
-send a post request to the /unsubscribe endpoint in the same format as above:
+Send a post request to the /unsubscribe endpoint in the format:
 
-{"email":"ChuckNorris@gmail.com"}
+{"email": "ChuckNorris@gmail.com"}
 
 
-Please do not deploy this to a production environment. The power of Chuck Norris is too great 
+Please do not deploy this to a production environment. The power of Chuck Norris is too great  (also, there are insecure roles and probably other bugs)
