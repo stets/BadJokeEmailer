@@ -498,7 +498,7 @@
             "Properties": {
                 "Description": "Cloudwatch rule to trigger badjokeEmailer lambda once a day",
                 "Name": "ChuckEmailFirer",
-                "ScheduleExpression": "cron(0/5 * * * ? *)",
+                "ScheduleExpression": "cron(30 11 * * ? *)",
                 "RoleArn": {
                     "Fn::GetAtt": [
                         "LambdaExecution",
@@ -549,7 +549,6 @@
         }
     },
     "Outputs": {
-        
         "InvokeUrlUnsubscribe": {
             "Description": "The invoke URL for the created API gateway resource",
             "Value": {
