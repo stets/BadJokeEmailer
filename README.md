@@ -16,6 +16,8 @@ Send a post request to the /subscribe endpoint in the format:
 
 {"email": "ChuckNorris@gmail.com"}
 
+![Subscribing a user with Postman](assets/post_sub.png)
+
 This will add that user to the SNS topic. The user will be emailed once a day at the same time that the stack was deployed. 
 
 
