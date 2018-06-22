@@ -10,6 +10,8 @@ Upload the cloudformation master template in the root of this repo via s3 or cop
 
 Once the stack has been deployed, it will output the name of the subscribe and unsubscribe API endpoints under the 'Outputs' tab on the main Cloudformation page. 
 
+![API Invocation URLs outputted for easy access](assets/APIurls.png)
+
 ## To Subscribe a User
 
 Send a post request to the /subscribe endpoint in the format:
@@ -27,5 +29,6 @@ Send a post request to the /unsubscribe endpoint in the format:
 
 {"email": "ChuckNorris@gmail.com"}
 
+![Unsubscribing a user with Postman](assets/post_unsub.png)
 
 Please do not deploy this to a production environment. The power of Chuck Norris is too great  (also, there are insecure roles and probably other bugs)
