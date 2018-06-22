@@ -20,7 +20,8 @@ Send a post request to the /subscribe endpoint in the format:
 
 ![Subscribing a user with Postman](assets/post_sub.png)
 
-This will add that user to the SNS topic. The user will be emailed once a day at the same time that the stack was deployed. 
+This will add that user to the SNS topic. The user will be emailed once a day at 11:30 EST.
+The time can be changed on the cron line under the cloudwatch rule resource. 
 
 
 ## To Unsubscribe a User

@@ -498,7 +498,7 @@
             "Properties": {
                 "Description": "Cloudwatch rule to trigger badjokeEmailer lambda once a day",
                 "Name": "ChuckEmailFirer",
-                "ScheduleExpression": "cron(30 11 * * ? *)",
+                "ScheduleExpression": "cron(30 15 * * ? *)",
                 "RoleArn": {
                     "Fn::GetAtt": [
                         "LambdaExecution",
